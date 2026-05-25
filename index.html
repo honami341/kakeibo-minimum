@@ -35,18 +35,18 @@
 
         <div class="api-row">
           <label>
-            OpenAI APIキー
-            <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
+            Worker URL
+            <input id="workerUrl" type="url" autocomplete="off" placeholder="https://kakeibo-ai-import.<account>.workers.dev">
           </label>
           <label>
             モデル
             <input id="model" type="text" value="gpt-4o-mini">
           </label>
-          <button id="saveKeyBtn" type="button" class="secondary">キー保存</button>
+          <button id="saveWorkerBtn" type="button" class="secondary">URL保存</button>
         </div>
 
         <p class="notice">
-          APIキーはこのブラウザ内だけに保存します。公開GitHubには保存しません。分類結果は必ず確認してから取り込んでください。
+          OpenAI APIキーはCloudflare Workers側に保存します。このページやGitHubには置きません。分類結果は必ず確認してから取り込んでください。
         </p>
 
         <div class="bulk-grid">

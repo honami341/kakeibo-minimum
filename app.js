@@ -1,5 +1,5 @@
 const STORAGE_KEY = "kakeibo-simple-from-2026-05";
-const API_KEY_STORAGE_KEY = "kakeibo-openai-api-key";
+const WORKER_URL_STORAGE_KEY = "kakeibo-worker-url";
 const START_MONTH = "2026-05";
 
 const form = document.getElementById("entryForm");
@@ -16,7 +16,7 @@ const fields = {
   status: document.getElementById("status")
 };
 const aiFields = {
-  apiKey: document.getElementById("apiKey"),
+  workerUrl: document.getElementById("workerUrl"),
   model: document.getElementById("model"),
   bulkType: document.getElementById("bulkType"),
   bulkMonth: document.getElementById("bulkMonth"),
@@ -227,9 +227,9 @@ function csvEscape(value) {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-function saveApiKey() {
-  localStorage.setItem(API_KEY_STORAGE_KEY, aiFields.apiKey.value.trim());
-  setAiStatus("APIキーをこのブラウザに保存しました。");
+function saveWorkerUrl() {
+  localStorage.setItem(WORKER_URL_STORAGE_KEY, aiFields.workerUrl.value.trim());
+  setAiStatus("Worker URLをこのブラウザに保存しました。");
 }
 
 function setAiStatus(message) {
@@ -237,10 +237,10 @@ function setAiStatus(message) {
 }
 
 async function classifyWithAi() {
-  const apiKey = aiFields.apiKey.value.trim();
+  const workerUrl = aiFields.workerUrl.value.trim();
   const text = aiFields.bulkText.value.trim();
-  if (!apiKey) {
-    setAiStatus("OpenAI APIキーを入力してください。");
+  if (!workerUrl) {
+    setAiStatus("Worker URLを入力してください。");
     return;
   }
   if (!text) {
@@ -252,7 +252,7 @@ async function classifyWithAi() {
   document.getElementById("aiImportBtn").disabled = true;
   try {
     const result = await callOpenAiClassifier({
-      apiKey,
+      workerUrl,
       model: aiFields.model.value.trim() || "gpt-4o-mini",
       month: aiFields.bulkMonth.value || START_MONTH,
       bulkType: aiFields.bulkType.value,
@@ -268,91 +268,25 @@ async function classifyWithAi() {
   }
 }
 
-async function callOpenAiClassifier({ apiKey, model, month, bulkType, text }) {
-  const response = await fetch("https://api.openai.com/v1/responses", {
+async function callOpenAiClassifier({ workerUrl, model, month, bulkType, text }) {
+  const response = await fetch(workerUrl.replace(/\/$/, "") + "/classify", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      "Content-Type": "application/json"
     },
     body: JSON.stringify({
       model,
-      input: [
-        {
-          role: "system",
-          content: [
-            {
-              type: "input_text",
-              text: [
-                "あなたは日本の家庭用家計簿データ整形アシスタントです。",
-                "入力されたレシートテキスト、カード明細、口座明細を、指定スキーマのJSONだけで返してください。",
-                "金額は必ず整数円にしてください。日付が不明な場合は対象月の1日にしてください。",
-                "推測に自信がない場合、statusは要確認、bearerは要確認にしてください。",
-                "口座間送金、ATM入金、精算送金はkind=transfer、bearer=口座移動、category=送金/ATMにしてください。",
-                "家族の生活費はbearer=家族。穂波の仕事費はbearer=穂波、category=仕事。美樹個人費はbearer=美樹。",
-                "sourceはreceipt/epos/bank/manualのどれかにしてください。"
-              ].join("\n")
-            }
-          ]
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: `対象月: ${month}\n入力種類: ${bulkType}\n\n${text}`
-            }
-          ]
-        }
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "kakeibo_import",
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              entries: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  properties: {
-                    date: { type: "string", description: "YYYY-MM-DD" },
-                    source: { type: "string", enum: ["receipt", "epos", "bank", "manual"] },
-                    kind: { type: "string", enum: ["expense", "income", "transfer"] },
-                    amount: { type: "integer" },
-                    payer: { type: "string", enum: ["美樹", "穂波", "家族口座", "穂波個人口座", "その他"] },
-                    bearer: { type: "string", enum: ["家族", "穂波", "美樹", "口座移動", "要確認"] },
-                    category: {
-                      type: "string",
-                      enum: ["食費", "外食", "日用品", "子ども", "医療", "仕事", "家賃/固定費", "臨時出費", "臨時収入", "送金/ATM", "その他"]
-                    },
-                    memo: { type: "string" },
-                    status: { type: "string", enum: ["OK", "要確認"] }
-                  },
-                  required: ["date", "source", "kind", "amount", "payer", "bearer", "category", "memo", "status"]
-                }
-              }
-            },
-            required: ["entries"]
-          }
-        }
-      }
+      month,
+      bulkType,
+      text
     })
   });
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error?.message || `OpenAI API error ${response.status}`);
+    throw new Error(data.error || data.error?.message || `Worker error ${response.status}`);
   }
-  const outputText = data.output
-    ?.flatMap((item) => item.content || [])
-    .find((content) => content.type === "output_text")?.text;
-  if (!outputText) throw new Error("JSON出力を取得できませんでした。");
-  return JSON.parse(outputText);
+  return data;
 }
 
 function normalizeAiEntry(entry) {
@@ -417,7 +351,7 @@ function syncKindDefaults() {
 fields.date.value = todayValue();
 if (monthOf(fields.date.value) > START_MONTH) monthFilter.value = monthOf(fields.date.value);
 aiFields.bulkMonth.value = monthFilter.value;
-aiFields.apiKey.value = localStorage.getItem(API_KEY_STORAGE_KEY) || "";
+aiFields.workerUrl.value = localStorage.getItem(WORKER_URL_STORAGE_KEY) || "";
 
 form.addEventListener("submit", addEntry);
 monthFilter.addEventListener("change", () => {
@@ -427,7 +361,7 @@ monthFilter.addEventListener("change", () => {
 fields.kind.addEventListener("change", syncKindDefaults);
 document.getElementById("exportBtn").addEventListener("click", exportCsv);
 document.getElementById("clearBtn").addEventListener("click", clearAll);
-document.getElementById("saveKeyBtn").addEventListener("click", saveApiKey);
+document.getElementById("saveWorkerBtn").addEventListener("click", saveWorkerUrl);
 document.getElementById("aiImportBtn").addEventListener("click", classifyWithAi);
 document.getElementById("importPreviewBtn").addEventListener("click", importPreview);
 document.getElementById("clearPreviewBtn").addEventListener("click", clearPreview);

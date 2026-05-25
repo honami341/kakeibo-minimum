@@ -1,0 +1,11 @@
+{
+  "type": "module",
+  "scripts": {
+    "check": "node --check app.js && node --check worker/src/index.js",
+    "worker:deploy": "wrangler deploy --config worker/wrangler.toml",
+    "worker:secret": "wrangler secret put OPENAI_API_KEY --config worker/wrangler.toml"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
