@@ -1,4 +1,5 @@
 const STORAGE_KEY = "kakeibo-simple-from-2026-05";
+const API_KEY_STORAGE_KEY = "kakeibo-openai-api-key";
 const START_MONTH = "2026-05";
 
 const form = document.getElementById("entryForm");
@@ -14,8 +15,18 @@ const fields = {
   memo: document.getElementById("memo"),
   status: document.getElementById("status")
 };
+const aiFields = {
+  apiKey: document.getElementById("apiKey"),
+  model: document.getElementById("model"),
+  bulkType: document.getElementById("bulkType"),
+  bulkMonth: document.getElementById("bulkMonth"),
+  bulkText: document.getElementById("bulkText"),
+  status: document.getElementById("aiStatus"),
+  previewRows: document.getElementById("previewRows")
+};
 
 let entries = loadEntries();
+let previewEntries = [];
 
 function todayValue() {
   const today = new Date();
@@ -105,6 +116,7 @@ function render() {
   renderCards(rows);
   renderQuestions(rows);
   renderRows(rows);
+  renderPreview();
 }
 
 function renderCards(rows) {
@@ -177,6 +189,22 @@ function renderRows(rows) {
     .join("");
 }
 
+function renderPreview() {
+  aiFields.previewRows.innerHTML = previewEntries
+    .map((entry) => `<tr>
+      <td>${entry.date}</td>
+      <td>${sourceLabel(entry.source)}</td>
+      <td>${kindLabel(entry.kind)}</td>
+      <td>${yen(entry.amount)}</td>
+      <td>${entry.payer}</td>
+      <td>${entry.bearer}</td>
+      <td>${entry.category}</td>
+      <td>${entry.memo || ""}</td>
+      <td>${entry.status}</td>
+    </tr>`)
+    .join("");
+}
+
 function exportCsv() {
   const header = ["date", "source", "kind", "amount", "payer", "bearer", "category", "memo", "status"];
   const lines = [
@@ -197,6 +225,174 @@ function exportCsv() {
 function csvEscape(value) {
   const text = String(value ?? "");
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function saveApiKey() {
+  localStorage.setItem(API_KEY_STORAGE_KEY, aiFields.apiKey.value.trim());
+  setAiStatus("APIキーをこのブラウザに保存しました。");
+}
+
+function setAiStatus(message) {
+  aiFields.status.textContent = message;
+}
+
+async function classifyWithAi() {
+  const apiKey = aiFields.apiKey.value.trim();
+  const text = aiFields.bulkText.value.trim();
+  if (!apiKey) {
+    setAiStatus("OpenAI APIキーを入力してください。");
+    return;
+  }
+  if (!text) {
+    setAiStatus("分類したいテキストやCSVを貼ってください。");
+    return;
+  }
+
+  setAiStatus("LLMで分類中です...");
+  document.getElementById("aiImportBtn").disabled = true;
+  try {
+    const result = await callOpenAiClassifier({
+      apiKey,
+      model: aiFields.model.value.trim() || "gpt-4o-mini",
+      month: aiFields.bulkMonth.value || START_MONTH,
+      bulkType: aiFields.bulkType.value,
+      text
+    });
+    previewEntries = result.entries.map(normalizeAiEntry).filter(Boolean);
+    renderPreview();
+    setAiStatus(`${previewEntries.length}件の候補を作りました。内容を見てから「候補を取り込む」を押してください。`);
+  } catch (error) {
+    setAiStatus(`分類に失敗しました: ${error.message}`);
+  } finally {
+    document.getElementById("aiImportBtn").disabled = false;
+  }
+}
+
+async function callOpenAiClassifier({ apiKey, model, month, bulkType, text }) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      input: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text: [
+                "あなたは日本の家庭用家計簿データ整形アシスタントです。",
+                "入力されたレシートテキスト、カード明細、口座明細を、指定スキーマのJSONだけで返してください。",
+                "金額は必ず整数円にしてください。日付が不明な場合は対象月の1日にしてください。",
+                "推測に自信がない場合、statusは要確認、bearerは要確認にしてください。",
+                "口座間送金、ATM入金、精算送金はkind=transfer、bearer=口座移動、category=送金/ATMにしてください。",
+                "家族の生活費はbearer=家族。穂波の仕事費はbearer=穂波、category=仕事。美樹個人費はbearer=美樹。",
+                "sourceはreceipt/epos/bank/manualのどれかにしてください。"
+              ].join("\n")
+            }
+          ]
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: `対象月: ${month}\n入力種類: ${bulkType}\n\n${text}`
+            }
+          ]
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "kakeibo_import",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              entries: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    date: { type: "string", description: "YYYY-MM-DD" },
+                    source: { type: "string", enum: ["receipt", "epos", "bank", "manual"] },
+                    kind: { type: "string", enum: ["expense", "income", "transfer"] },
+                    amount: { type: "integer" },
+                    payer: { type: "string", enum: ["美樹", "穂波", "家族口座", "穂波個人口座", "その他"] },
+                    bearer: { type: "string", enum: ["家族", "穂波", "美樹", "口座移動", "要確認"] },
+                    category: {
+                      type: "string",
+                      enum: ["食費", "外食", "日用品", "子ども", "医療", "仕事", "家賃/固定費", "臨時出費", "臨時収入", "送金/ATM", "その他"]
+                    },
+                    memo: { type: "string" },
+                    status: { type: "string", enum: ["OK", "要確認"] }
+                  },
+                  required: ["date", "source", "kind", "amount", "payer", "bearer", "category", "memo", "status"]
+                }
+              }
+            },
+            required: ["entries"]
+          }
+        }
+      }
+    })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error?.message || `OpenAI API error ${response.status}`);
+  }
+  const outputText = data.output
+    ?.flatMap((item) => item.content || [])
+    .find((content) => content.type === "output_text")?.text;
+  if (!outputText) throw new Error("JSON出力を取得できませんでした。");
+  return JSON.parse(outputText);
+}
+
+function normalizeAiEntry(entry) {
+  const date = String(entry.date || `${aiFields.bulkMonth.value || START_MONTH}-01`);
+  const normalized = {
+    id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+    date: date < "2026-05-01" ? `${aiFields.bulkMonth.value || START_MONTH}-01` : date,
+    source: normalizeChoice(entry.source, ["receipt", "epos", "bank", "manual"], "manual"),
+    kind: normalizeChoice(entry.kind, ["expense", "income", "transfer"], "expense"),
+    amount: Number(entry.amount || 0),
+    payer: normalizeChoice(entry.payer, ["美樹", "穂波", "家族口座", "穂波個人口座", "その他"], "その他"),
+    bearer: normalizeChoice(entry.bearer, ["家族", "穂波", "美樹", "口座移動", "要確認"], "要確認"),
+    category: normalizeChoice(entry.category, ["食費", "外食", "日用品", "子ども", "医療", "仕事", "家賃/固定費", "臨時出費", "臨時収入", "送金/ATM", "その他"], "その他"),
+    memo: String(entry.memo || ""),
+    status: normalizeChoice(entry.status, ["OK", "要確認"], "要確認")
+  };
+  if (!normalized.amount) return null;
+  return normalized;
+}
+
+function normalizeChoice(value, allowed, fallback) {
+  return allowed.includes(value) ? value : fallback;
+}
+
+function importPreview() {
+  if (!previewEntries.length) {
+    setAiStatus("取り込む候補がありません。");
+    return;
+  }
+  entries = [...entries, ...previewEntries];
+  previewEntries = [];
+  saveEntries();
+  setAiStatus("候補を家計簿に取り込みました。");
+  render();
+}
+
+function clearPreview() {
+  previewEntries = [];
+  renderPreview();
+  setAiStatus("候補をクリアしました。");
 }
 
 function clearAll() {
@@ -220,12 +416,21 @@ function syncKindDefaults() {
 
 fields.date.value = todayValue();
 if (monthOf(fields.date.value) > START_MONTH) monthFilter.value = monthOf(fields.date.value);
+aiFields.bulkMonth.value = monthFilter.value;
+aiFields.apiKey.value = localStorage.getItem(API_KEY_STORAGE_KEY) || "";
 
 form.addEventListener("submit", addEntry);
-monthFilter.addEventListener("change", render);
+monthFilter.addEventListener("change", () => {
+  aiFields.bulkMonth.value = monthFilter.value;
+  render();
+});
 fields.kind.addEventListener("change", syncKindDefaults);
 document.getElementById("exportBtn").addEventListener("click", exportCsv);
 document.getElementById("clearBtn").addEventListener("click", clearAll);
+document.getElementById("saveKeyBtn").addEventListener("click", saveApiKey);
+document.getElementById("aiImportBtn").addEventListener("click", classifyWithAi);
+document.getElementById("importPreviewBtn").addEventListener("click", importPreview);
+document.getElementById("clearPreviewBtn").addEventListener("click", clearPreview);
 document.getElementById("rows").addEventListener("click", (event) => {
   if (event.target.matches(".delete")) deleteEntry(event.target.dataset.id);
 });

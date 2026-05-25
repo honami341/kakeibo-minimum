@@ -27,6 +27,71 @@
         <div class="cards" id="cards"></div>
       </section>
 
+      <section class="panel ai-panel">
+        <div class="panel-title">
+          <h2>LLMで一括入力</h2>
+          <span>レシート・エポス・口座をまとめて候補化</span>
+        </div>
+
+        <div class="api-row">
+          <label>
+            OpenAI APIキー
+            <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
+          </label>
+          <label>
+            モデル
+            <input id="model" type="text" value="gpt-4o-mini">
+          </label>
+          <button id="saveKeyBtn" type="button" class="secondary">キー保存</button>
+        </div>
+
+        <p class="notice">
+          APIキーはこのブラウザ内だけに保存します。公開GitHubには保存しません。分類結果は必ず確認してから取り込んでください。
+        </p>
+
+        <div class="bulk-grid">
+          <label>
+            取り込み種類
+            <select id="bulkType">
+              <option value="receipts">1か月分レシートテキスト</option>
+              <option value="epos">エポス明細CSV/貼り付け</option>
+              <option value="bank">口座明細CSV/貼り付け</option>
+              <option value="mixed">全部まとめて貼る</option>
+            </select>
+          </label>
+          <label>
+            対象月
+            <input id="bulkMonth" type="month" min="2026-05" value="2026-05">
+          </label>
+        </div>
+
+        <textarea id="bulkText" placeholder="ここに1か月分のレシートテキスト、エポス明細、口座明細を貼る"></textarea>
+        <div class="bulk-actions">
+          <button id="aiImportBtn" type="button">LLMで分類</button>
+          <button id="importPreviewBtn" type="button" class="secondary">候補を取り込む</button>
+          <button id="clearPreviewBtn" type="button" class="secondary">候補クリア</button>
+        </div>
+        <div id="aiStatus" class="ai-status"></div>
+        <div class="table-wrap preview-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日付</th>
+                <th>元</th>
+                <th>種類</th>
+                <th>金額</th>
+                <th>払った人/口座</th>
+                <th>負担/意味</th>
+                <th>カテゴリ</th>
+                <th>メモ</th>
+                <th>状態</th>
+              </tr>
+            </thead>
+            <tbody id="previewRows"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="panel">
         <div class="panel-title">
           <h2>入力する</h2>
