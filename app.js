@@ -20,6 +20,7 @@ const aiFields = {
   model: document.getElementById("model"),
   bulkType: document.getElementById("bulkType"),
   bulkMonth: document.getElementById("bulkMonth"),
+  receiptBearer: "家族",
   bulkText: document.getElementById("bulkText"),
   status: document.getElementById("aiStatus"),
   previewRows: document.getElementById("previewRows")
@@ -256,6 +257,7 @@ async function classifyWithAi() {
       model: aiFields.model.value.trim() || "gpt-4o-mini",
       month: aiFields.bulkMonth.value || START_MONTH,
       bulkType: aiFields.bulkType.value,
+      receiptBearer: aiFields.receiptBearer,
       text
     });
     previewEntries = result.entries.map(normalizeAiEntry).filter(Boolean);
@@ -268,7 +270,7 @@ async function classifyWithAi() {
   }
 }
 
-async function callOpenAiClassifier({ workerUrl, model, month, bulkType, text }) {
+async function callOpenAiClassifier({ workerUrl, model, month, bulkType, receiptBearer, text }) {
   const response = await fetch(workerUrl.replace(/\/$/, "") + "/classify", {
     method: "POST",
     headers: {
@@ -278,6 +280,7 @@ async function callOpenAiClassifier({ workerUrl, model, month, bulkType, text })
       model,
       month,
       bulkType,
+      receiptBearer,
       text
     })
   });
@@ -303,6 +306,10 @@ function normalizeAiEntry(entry) {
     memo: String(entry.memo || ""),
     status: normalizeChoice(entry.status, ["OK", "要確認"], "要確認")
   };
+  if (normalized.source === "receipt" && ["家族", "穂波", "美樹", "要確認"].includes(aiFields.receiptBearer)) {
+    normalized.bearer = aiFields.receiptBearer;
+    if (aiFields.receiptBearer === "要確認") normalized.status = "要確認";
+  }
   if (!normalized.amount) return null;
   return normalized;
 }
@@ -365,6 +372,13 @@ document.getElementById("saveWorkerBtn").addEventListener("click", saveWorkerUrl
 document.getElementById("aiImportBtn").addEventListener("click", classifyWithAi);
 document.getElementById("importPreviewBtn").addEventListener("click", importPreview);
 document.getElementById("clearPreviewBtn").addEventListener("click", clearPreview);
+document.querySelectorAll(".bearer-tab").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".bearer-tab").forEach((tab) => tab.classList.remove("active"));
+    button.classList.add("active");
+    aiFields.receiptBearer = button.dataset.bearer;
+  });
+});
 document.getElementById("rows").addEventListener("click", (event) => {
   if (event.target.matches(".delete")) deleteEntry(event.target.dataset.id);
 });

@@ -194,6 +194,34 @@ textarea {
   margin-top: 14px;
 }
 
+.bearer-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0 10px;
+}
+
+.bearer-tabs span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bearer-tab {
+  min-height: 34px;
+  padding: 6px 12px;
+  background: #fff;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.bearer-tab.active {
+  background: var(--main);
+  color: #fff;
+  border-color: var(--main);
+}
+
 .notice {
   margin: 10px 0 0;
   color: var(--muted);

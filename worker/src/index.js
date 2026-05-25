@@ -61,6 +61,7 @@ export default {
       const model = body.model || "gpt-4o-mini";
       const month = body.month || "2026-05";
       const bulkType = body.bulkType || "mixed";
+      const receiptBearer = ["家族", "穂波", "美樹", "要確認"].includes(body.receiptBearer) ? body.receiptBearer : "家族";
       const text = String(body.text || "").slice(0, 120000);
 
       if (!text.trim()) {
@@ -86,6 +87,8 @@ export default {
                     "入力されたレシートテキスト、カード明細、口座明細を、指定スキーマのJSONだけで返してください。",
                     "金額は必ず整数円にしてください。日付が不明な場合は対象月の1日にしてください。",
                     "推測に自信がない場合、statusは要確認、bearerは要確認にしてください。",
+                    `レシート/LINE由来の行は、bearerを必ず「${receiptBearer}」にしてください。`,
+                    receiptBearer === "要確認" ? "レシート/LINE由来の行は、statusも必ず要確認にしてください。" : "レシート/LINE由来の行は、statusをOKにしてください。",
                     "口座間送金、ATM入金、精算送金はkind=transfer、bearer=口座移動、category=送金/ATMにしてください。",
                     "家族の生活費はbearer=家族。穂波の仕事費はbearer=穂波、category=仕事。美樹個人費はbearer=美樹。",
                     "sourceはreceipt/epos/bank/manualのどれかにしてください。"
