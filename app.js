@@ -351,7 +351,7 @@ function syncKindDefaults() {
 fields.date.value = todayValue();
 if (monthOf(fields.date.value) > START_MONTH) monthFilter.value = monthOf(fields.date.value);
 aiFields.bulkMonth.value = monthFilter.value;
-aiFields.workerUrl.value = localStorage.getItem(WORKER_URL_STORAGE_KEY) || "";
+aiFields.workerUrl.value = localStorage.getItem(WORKER_URL_STORAGE_KEY) || "https://kakeibo-ai-import.honami-kakeibo.workers.dev";
 
 form.addEventListener("submit", addEntry);
 monthFilter.addEventListener("change", () => {

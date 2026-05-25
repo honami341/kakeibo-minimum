@@ -156,13 +156,13 @@ npx wrangler deploy
 例:
 
 ```text
-https://kakeibo-ai-import.<account>.workers.dev
+https://kakeibo-ai-import.honami-kakeibo.workers.dev
 ```
 
 動作確認:
 
 ```text
-https://kakeibo-ai-import.<account>.workers.dev/health
+https://kakeibo-ai-import.honami-kakeibo.workers.dev/health
 ```
 
 `{"ok":true}` が返ればWorkerは動いています。
