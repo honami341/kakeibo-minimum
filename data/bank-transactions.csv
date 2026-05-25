@@ -1,3 +1,0 @@
-date,month,account,amount,direction,description,type,meaning,status,memo
-2026-04-28,2026-04,family_bank,-29700,out,LMS引落,expense,家族口座が穂波仕事費を肩代わり,approved,
-2026-04-30,2026-04,family_bank,50000,in,ATM入金,transfer,unknown,pending,誰の現金か確認

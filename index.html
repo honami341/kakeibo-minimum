@@ -3,117 +3,163 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>家計簿ミニマム</title>
+    <title>5月からの家計簿</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <header class="topbar">
+    <header>
       <div>
-        <p class="eyebrow">Kakeibo Minimum</p>
-        <h1>家計簿・口座移動サマリー</h1>
+        <p>2026年5月スタート</p>
+        <h1>シンプル家計簿</h1>
       </div>
-      <div class="top-actions">
-        <button id="saveBtn" type="button">保存</button>
-        <button id="loadSampleBtn" type="button">サンプル復元</button>
-        <button id="clearBtn" type="button" class="ghost">入力クリア</button>
+      <div class="actions">
+        <button id="exportBtn" type="button">保存用CSV</button>
+        <button id="clearBtn" type="button" class="secondary">全削除</button>
       </div>
     </header>
 
     <main>
-      <section class="controls">
+      <section class="summary">
         <label>
-          集計月
-          <select id="monthSelect"></select>
+          見る月
+          <input id="monthFilter" type="month" min="2026-05" value="2026-05">
         </label>
-        <button id="buildBtn" type="button">サマリー更新</button>
-        <button id="downloadMdBtn" type="button" class="ghost">Markdown出力</button>
-        <button id="downloadJsonBtn" type="button" class="ghost">JSON出力</button>
+        <div class="cards" id="cards"></div>
       </section>
-
-      <section class="summary-grid" id="summaryCards"></section>
 
       <section class="panel">
-        <div class="panel-head">
-          <h2>月次サマリー</h2>
-          <span id="summaryStatus"></span>
+        <div class="panel-title">
+          <h2>入力する</h2>
+          <span>迷ったら「要確認」にする</span>
         </div>
-        <pre id="monthlySummary" class="report"></pre>
+
+        <form id="entryForm" class="entry-form">
+          <label>
+            日付
+            <input id="date" type="date" min="2026-05-01" required>
+          </label>
+
+          <label>
+            入力元
+            <select id="source" required>
+              <option value="receipt">レシート/LINE</option>
+              <option value="epos">エポス</option>
+              <option value="bank">口座</option>
+              <option value="manual">臨時</option>
+            </select>
+          </label>
+
+          <label>
+            種類
+            <select id="kind" required>
+              <option value="expense">支出</option>
+              <option value="income">収入</option>
+              <option value="transfer">口座移動</option>
+            </select>
+          </label>
+
+          <label>
+            金額
+            <input id="amount" type="number" inputmode="numeric" min="1" required placeholder="1200">
+          </label>
+
+          <label>
+            払った人/口座
+            <select id="payer" required>
+              <option value="美樹">美樹</option>
+              <option value="穂波">穂波</option>
+              <option value="家族口座">家族口座</option>
+              <option value="穂波個人口座">穂波個人口座</option>
+              <option value="その他">その他</option>
+            </select>
+          </label>
+
+          <label>
+            最終負担/意味
+            <select id="bearer" required>
+              <option value="家族">家族</option>
+              <option value="穂波">穂波</option>
+              <option value="美樹">美樹</option>
+              <option value="口座移動">口座移動</option>
+              <option value="要確認">要確認</option>
+            </select>
+          </label>
+
+          <label>
+            カテゴリ
+            <select id="category" required>
+              <option value="食費">食費</option>
+              <option value="外食">外食</option>
+              <option value="日用品">日用品</option>
+              <option value="子ども">子ども</option>
+              <option value="医療">医療</option>
+              <option value="仕事">仕事</option>
+              <option value="家賃/固定費">家賃/固定費</option>
+              <option value="臨時出費">臨時出費</option>
+              <option value="臨時収入">臨時収入</option>
+              <option value="送金/ATM">送金/ATM</option>
+              <option value="その他">その他</option>
+            </select>
+          </label>
+
+          <label class="wide">
+            内容メモ
+            <input id="memo" type="text" placeholder="スーパー、LMS、ATM入金の意味など">
+          </label>
+
+          <label>
+            状態
+            <select id="status">
+              <option value="OK">OK</option>
+              <option value="要確認">要確認</option>
+            </select>
+          </label>
+
+          <button type="submit">追加</button>
+        </form>
       </section>
 
-      <section class="panel warn">
-        <div class="panel-head">
-          <h2>質問リスト</h2>
-          <span>unknown / pending をここに集める</span>
+      <section class="panel attention">
+        <div class="panel-title">
+          <h2>確認すること</h2>
+          <span>口座移動や要確認だけ表示</span>
         </div>
         <div id="questions"></div>
       </section>
 
-      <section class="tabs" aria-label="入力データ">
-        <button class="tab active" data-tab="receipt">レシートLINE</button>
-        <button class="tab" data-tab="epos">エポス</button>
-        <button class="tab" data-tab="bank">口座</button>
-        <button class="tab" data-tab="temporaryExpenses">臨時出費</button>
-        <button class="tab" data-tab="temporaryIncome">臨時収入</button>
-        <button class="tab" data-tab="movementNotes">口座移動メモ</button>
-        <button class="tab" data-tab="ledger">統合台帳</button>
-      </section>
-
-      <section class="panel tab-panel active" id="tab-receipt">
-        <h2>レシートLINE月次サマリー</h2>
-        <p class="hint">LINEやOCRでまとめた月別・人別・カテゴリ別の合計を貼ります。</p>
-        <textarea id="receiptInput" spellcheck="false"></textarea>
-      </section>
-
-      <section class="panel tab-panel" id="tab-epos">
-        <h2>エポス明細</h2>
-        <p class="hint">カード明細を貼ります。`bearer=unknown` や `status=pending` は質問リストに出ます。</p>
-        <textarea id="eposInput" spellcheck="false"></textarea>
-      </section>
-
-      <section class="panel tab-panel" id="tab-bank">
-        <h2>口座明細</h2>
-        <p class="hint">口座間移動は `type=transfer`、意味が未確定なら `meaning=unknown` にします。</p>
-        <textarea id="bankInput" spellcheck="false"></textarea>
-      </section>
-
-      <section class="panel tab-panel" id="tab-temporaryExpenses">
-        <h2>臨時出費</h2>
-        <textarea id="temporaryExpensesInput" spellcheck="false"></textarea>
-      </section>
-
-      <section class="panel tab-panel" id="tab-temporaryIncome">
-        <h2>臨時収入</h2>
-        <textarea id="temporaryIncomeInput" spellcheck="false"></textarea>
-      </section>
-
-      <section class="panel tab-panel" id="tab-movementNotes">
-        <h2>口座移動メモ</h2>
-        <p class="hint">質問に答えた内容を記録します。口頭で決めた意味づけの保存場所です。</p>
-        <textarea id="movementNotesInput" spellcheck="false"></textarea>
-      </section>
-
-      <section class="panel tab-panel" id="tab-ledger">
-        <div class="panel-head">
-          <h2>統合台帳</h2>
-          <span id="ledgerCount"></span>
+      <section class="panel">
+        <div class="panel-title">
+          <h2>今月の記録</h2>
+          <span id="count"></span>
         </div>
         <div class="table-wrap">
-          <table id="ledgerTable">
+          <table>
             <thead>
               <tr>
-                <th>日付/月</th>
+                <th>日付</th>
                 <th>元</th>
-                <th>支払/受取</th>
-                <th>負担</th>
+                <th>種類</th>
                 <th>金額</th>
+                <th>払った人/口座</th>
+                <th>負担/意味</th>
                 <th>カテゴリ</th>
-                <th>内容</th>
-                <th>状態</th>
+                <th>メモ</th>
+                <th></th>
               </tr>
             </thead>
-            <tbody></tbody>
+            <tbody id="rows"></tbody>
           </table>
         </div>
+      </section>
+
+      <section class="panel guide">
+        <h2>どこに入れるか</h2>
+        <ul>
+          <li><strong>レシート/LINE:</strong> 現金払い、レシート撮影、LINEで残した支出</li>
+          <li><strong>エポス:</strong> エポスカードの明細</li>
+          <li><strong>口座:</strong> 家族口座や個人口座の入出金、ATM、送金</li>
+          <li><strong>臨時:</strong> 急な出費、臨時収入、あとから思い出したもの</li>
+        </ul>
       </section>
     </main>
 
